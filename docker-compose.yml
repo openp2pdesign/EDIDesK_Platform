@@ -1,0 +1,201 @@
+version: '3'
+
+services:
+
+  # --- DATABASE ---
+  # MySQL
+  db_mysql:
+    image: mysql:5.7
+    container_name: "EDI_DB_MYSQL"
+    # Set max_allowed_packet to 64M for Matomo integration
+    command: --max_allowed_packet=67108864
+    volumes:
+      - ./volumes/db_mysql_data:/var/lib/mysql
+    restart: always
+    env_file:
+      - .env_w
+    networks:
+      - wpsite
+  # MariaDB
+  db_maria:
+    image: mariadb
+    container_name: "EDI_DB_MARIA"
+    volumes:
+      - ./volumes/db_maria_data:/var/lib/mysql
+    restart: always
+    env_file:
+      - .env_m
+    networks:
+      - msite
+  # PostgreSQL
+  db_postgres:
+    image: docker.io/postgres:10
+    container_name: "EDI_DB_POSTGRES"
+    restart: always
+    env_file:
+      - .env_l
+    expose:
+      - 5432
+    volumes:
+      - ./volumes/db_postgres_data:/var/lib/postgresql/data
+    networks:
+      - lsite
+
+  # phpMyAdmin
+  # phpMyAdmin for Wordpress and Moodle
+  phpmyadmin:
+    image: phpmyadmin
+    container_name: "EDI_PHPMYADMIN"
+    restart: always
+    ports:
+      - 8086:80
+    environment:
+      - PMA_ARBITRARY=1
+      - UPLOAD_LIMIT=100000000
+    depends_on:
+      - db_mysql
+      - db_maria
+    networks:
+      - wpsite
+      - msite
+  # pgAdmin for LimeSurvey
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: "EDI_PGADMIN"
+    restart: always
+    ports:
+      - 8004:80
+    env_file:
+      - .env_l
+    volumes:
+       - pgadmin_data:/var/lib/pgadmin
+       - pgadmin_tmp:/tmp
+    depends_on:
+      - db_postgres
+    links:
+      - db_postgres
+    networks:
+      - lsite
+
+  # --- FRONT-END ---
+  # Wordpress
+  # As the main platform
+  wordpress:
+    #image: wordpress:latest
+    build:
+      context: ./installation/wordpress
+      dockerfile: Dockerfile-wordpress
+    container_name: "EDI_WORDPRESS"
+    hostname: platform.villagehosts.eu
+    volumes:
+       - ./volumes/wp_data/wp-content:/var/www/html/wp-content
+    restart: always
+    ports:
+      - 8100:80
+    environment:
+      - .env_w
+    depends_on:
+      - db_mysql
+    networks:
+      - wpsite
+
+  # Moodle
+  # For the training
+  moodle:
+    #image: bitnami/moodle:4
+    build:
+      context: ./installation/moodle
+      dockerfile: Dockerfile-moodle
+    container_name: "EDI_MOODLE"
+    hostname: training.villagehosts.eu
+    restart: always
+    ports:
+      - 8081:8080
+      - 8082:8443
+    env_file:
+      - .env_m
+    volumes:
+      - ./volumes/moodle_data:/bitnami/moodle
+      - ./volumes/moodledata_data:/bitnami/moodledata
+    depends_on:
+      - db_maria
+    links:
+      - db_maria
+    networks:
+      - msite
+
+  # LimeSurvey
+  # For user surveys
+  limesurvey:
+    image: docker.io/martialblog/limesurvey:latest
+    container_name: "EDI_LIMESURVEY"
+    restart: always
+    env_file:
+      - .env_l
+    volumes:
+      - ./volumes/limesurvey_data:/var/www/html/upload/surveys
+    ports:
+      - 8085:8080
+    depends_on:
+      - db_postgres
+    links:
+      - db_postgres
+    networks:
+      - lsite
+
+  # --- MANAGEMENT ---
+
+  # Portainer
+  # For managing containers
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: "EDI_PORTAINER"
+    hostname: platform.villagehosts.eu
+    restart: always
+    ports:
+      - 8000:8000
+      - 9443:9443
+      - 9000:9000
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./volumes/portainer_data:/data
+    networks:
+      - wpsite
+      - msite
+
+  # Nginx Proxy Manager
+  # For managing domains and certificates
+  nginxproxymanager:
+   image: 'jc21/nginx-proxy-manager:latest'
+   container_name: "EDI_NGINXPROXYMANAGER"
+   restart: always
+   ports:
+     - 80:80
+     - 8083:81
+     - 443:443
+   volumes:
+     - ./volumes/nginx_data:/data
+     - ./volumes/letsencrypt_data:/etc/letsencrypt
+
+
+volumes:
+  db_mysql_data:
+  db_maria_data:
+  db_postgres_data:
+  wp_data:
+  moodle_data:
+  moodledata_data:
+  limesurvey_data:
+  nginx_data:
+  letsencrypt_data:
+  pgadmin_data:
+  pgadmin_tmp:
+
+
+networks:
+  wpsite:
+  msite:
+  lsite:
