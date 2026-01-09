@@ -86,7 +86,7 @@ services:
       context: ./installation/wordpress
       dockerfile: Dockerfile-wordpress
     container_name: "EDI_WORDPRESS"
-    hostname: platform.villagehosts.eu
+    hostname: platform.edideskproject.com
     volumes:
        - ./volumes/wp_data/wp-content:/var/www/html/wp-content
     restart: always
@@ -107,7 +107,7 @@ services:
       context: ./installation/moodle
       dockerfile: Dockerfile-moodle
     container_name: "EDI_MOODLE"
-    hostname: training.villagehosts.eu
+    hostname: training.edideskproject.com
     restart: always
     ports:
       - 8081:8080
