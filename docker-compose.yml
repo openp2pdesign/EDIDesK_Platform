@@ -1,33 +1,19 @@
-version: '3'
 
 services:
 
-  # --- DATABASE ---
-  # MySQL
-  db_mysql:
-    image: mysql:5.7
-    container_name: "EDI_DB_MYSQL"
-    # Set max_allowed_packet to 64M for Matomo integration
-    command: --max_allowed_packet=67108864
-    volumes:
-      - ./volumes/db_mysql_data:/var/lib/mysql
-    restart: always
+# MariaDB
+  db_maria:
+    image: mariadb:11
+    container_name: "EDI_DB_MARIA"
+    restart: unless-stopped
     env_file:
       - .env_w
+    volumes:
+      - db_maria_data:/var/lib/mysql
     networks:
       - wpsite
-  # MariaDB
-  db_maria:
-    image: mariadb
-    container_name: "EDI_DB_MARIA"
-    volumes:
-      - ./volumes/db_maria_data:/var/lib/mysql
-    restart: always
-    env_file:
-      - .env_m
-    networks:
-      - msite
-  # PostgreSQL
+
+# PostgreSQL
   db_postgres:
     image: docker.io/postgres:10
     container_name: "EDI_DB_POSTGRES"
@@ -53,11 +39,10 @@ services:
       - PMA_ARBITRARY=1
       - UPLOAD_LIMIT=100000000
     depends_on:
-      - db_mysql
       - db_maria
     networks:
       - wpsite
-      - msite
+
   # pgAdmin for LimeSurvey
   pgadmin:
     image: dpage/pgadmin4
@@ -88,41 +73,16 @@ services:
     container_name: "EDI_WORDPRESS"
     hostname: platform.edideskproject.com
     volumes:
-       - ./volumes/wp_data/wp-content:/var/www/html/wp-content
+       - ./volume/wp_data/wp-content:/var/www/html/wp-content
     restart: always
     ports:
       - 8100:80
     environment:
       - .env_w
     depends_on:
-      - db_mysql
+      - db_maria
     networks:
       - wpsite
-
-  # Moodle
-  # For the training
-  moodle:
-    #image: bitnami/moodle:4
-    build:
-      context: ./installation/moodle
-      dockerfile: Dockerfile-moodle
-    container_name: "EDI_MOODLE"
-    hostname: training.edideskproject.com
-    restart: always
-    ports:
-      - 8081:8080
-      - 8082:8443
-    env_file:
-      - .env_m
-    volumes:
-      - ./volumes/moodle_data:/bitnami/moodle
-      - ./volumes/moodledata_data:/bitnami/moodledata
-    depends_on:
-      - db_maria
-    links:
-      - db_maria
-    networks:
-      - msite
 
   # LimeSurvey
   # For user surveys
@@ -150,7 +110,7 @@ services:
   portainer:
     image: portainer/portainer-ce:latest
     container_name: "EDI_PORTAINER"
-    hostname: platform.villagehosts.eu
+    hostname: platform.edideskproject.com
     restart: always
     ports:
       - 8000:8000
@@ -164,7 +124,7 @@ services:
       - ./volumes/portainer_data:/data
     networks:
       - wpsite
-      - msite
+      - lsite
 
   # Nginx Proxy Manager
   # For managing domains and certificates
@@ -179,15 +139,14 @@ services:
    volumes:
      - ./volumes/nginx_data:/data
      - ./volumes/letsencrypt_data:/etc/letsencrypt
+   networks:
+     - wpsite
 
 
 volumes:
-  db_mysql_data:
   db_maria_data:
   db_postgres_data:
   wp_data:
-  moodle_data:
-  moodledata_data:
   limesurvey_data:
   nginx_data:
   letsencrypt_data:
@@ -197,5 +156,4 @@ volumes:
 
 networks:
   wpsite:
-  msite:
   lsite:

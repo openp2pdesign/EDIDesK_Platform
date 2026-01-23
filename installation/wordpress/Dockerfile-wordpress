@@ -102,6 +102,12 @@ RUN unzip youzify.1.2.2.zip
 RUN cp -R youzify /usr/src/wordpress/wp-content/plugins/youzify
 RUN rm youzify.1.2.2.zip && rm -rf youzify
 
+# WP Mail SMTP
+RUN wget https://downloads.wordpress.org/plugin/wp-mail-smtp.4.7.1.zip
+RUN unzip wp-mail-smtp.4.7.1.zip
+RUN cp -R wp-mail-smtp /usr/src/wordpress/wp-content/plugins/wp-mail-smtp
+RUN rm wp-mail-smtp.4.7.1.zip && rm -rf wp-mail-smtp
+
 # Plugins copied manually in the folder
 COPY wp-content/plugins/ /usr/src/wordpress/wp-content/plugins/
 
